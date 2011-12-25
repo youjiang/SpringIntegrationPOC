@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns:beans="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.springframework.org/schema/integration"
+	xmlns:ip="http://www.springframework.org/schema/integration/ip"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/integration/ip http://www.springframework.org/schema/integration/ip/spring-integration-ip.xsd">
+
+	<beans:bean id="tcpInterceptors"
+		class="org.springframework.integration.ip.tcp.connection.TcpConnectionInterceptorFactoryChain">
+		<beans:property name="interceptors">
+			<beans:array>
+				<beans:bean class="poc.telnet.TcpInterceptorFactory">
+					<beans:property name="authentication" ref="authentication" />
+				</beans:bean>
+			</beans:array>
+		</beans:property>
+	</beans:bean>
+
+	<ip:tcp-connection-factory id="crLfServer"
+		type="server" port="11111" interceptor-factory-chain="tcpInterceptors" />
+	<beans:bean id="authentication" class="poc.telnet.Authentication" />
+
+	<ip:tcp-inbound-gateway id="gatewayCrLf"
+		connection-factory="crLfServer" request-channel="telnetInbound"
+		error-channel="errorChannel" />
+
+	<channel id="errorChannel" />
+	<channel id="telnetInbound" />
+
+	<transformer id="stringToMapTransformer" input-channel="telnetInbound"
+		output-channel="telnetTransformed" method="transform">
+		<beans:bean class="poc.telnet.StringToMapTransformer" />
+
+	</transformer>
+	<channel id="telnetTransformed" />
+
+	<service-activator input-channel="telnetTransformed"
+		ref="echoService" method="test" />
+
+
+	<beans:bean id="echoService" class="poc.telnet.EchoService" />
+
+
+
+	<transformer id="errorHandler" input-channel="errorChannel"
+		expression="payload.failedMessage.payload + ':' + payload.cause.message" />
+
+</beans:beans>
